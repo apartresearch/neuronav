@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use crate::{
     data::{retrieve, NeuronViewerObject, NeuroscopePage},
-    server,
+    server, Neuronav,
 };
 use anyhow::{Context, Result};
 use pyo3::prelude::*;
@@ -9,11 +11,6 @@ use tokio::runtime::Runtime;
 #[pyfunction]
 fn debug() {
     println!("Hello from Rust!");
-}
-
-#[pyfunction]
-fn start_server() {
-    server::start_server().unwrap();
 }
 
 #[pyfunction]
@@ -92,13 +89,39 @@ impl PyNeuroscopePage {
     }
 }
 
+#[pyclass(name = "Neuronav")]
+pub struct PyNeuronav {
+    neuronav: Arc<Neuronav>,
+}
+
+#[pymethods]
+impl PyNeuronav {
+    #[staticmethod]
+    fn initialize(path: &str) -> PyResult<()> {
+        Neuronav::initialize(path)?;
+        Ok(())
+    }
+
+    #[staticmethod]
+    fn from_dir(path: &str) -> PyResult<Self> {
+        Ok(PyNeuronav {
+            neuronav: Arc::new(Neuronav::from_dir(path)?),
+        })
+    }
+
+    fn start_server(&self) -> PyResult<()> {
+        server::start_server(Arc::clone(&self.neuronav))?;
+        Ok(())
+    }
+}
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn neuronav(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(debug, m)?)?;
-    m.add_function(wrap_pyfunction!(start_server, m)?)?;
     m.add_function(wrap_pyfunction!(scrape_layer_to_files, m)?)?;
     m.add_class::<PyNeuronViewerObject>()?;
     m.add_class::<PyNeuroscopePage>()?;
+    m.add_class::<PyNeuronav>()?;
     Ok(())
 }
