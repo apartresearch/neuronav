@@ -6,13 +6,20 @@ use super::ServiceProvider;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Service {
-    provider: ServiceProvider,
     name: String,
+    provider: ServiceProvider,
 }
 
 impl Service {
+    pub fn new(name: impl Into<String>, provider: ServiceProvider) -> Self {
+        Self {
+            name: name.into(),
+            provider,
+        }
+    }
+
     pub fn name(&self) -> &str {
         self.name.as_str()
     }

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use actix_web::{
     get, http::header::ContentType, rt, web, App, HttpResponse, HttpServer, Responder,
 };
+use tokio::sync::Mutex;
 
 use crate::Neuronav;
 
@@ -22,12 +23,12 @@ async fn index(
     }
 }
 
-pub fn start_server(neuronav: Arc<Neuronav>) -> std::io::Result<()> {
+pub fn start_server(neuronav: Arc<Mutex<Neuronav>>) -> std::io::Result<()> {
     rt::System::new().block_on(
         HttpServer::new(move || {
-            App::new()
-                .app_data(web::Data::new(Arc::clone(&neuronav)))
-                .service(index)
+            let neuronav = Arc::clone(&neuronav);
+            let neuronav = neuronav.blocking_lock_owned();
+            App::new().app_data(web::Data::new(neuronav)).service(index)
         })
         .bind(("127.0.0.1", 8080))?
         .run(),

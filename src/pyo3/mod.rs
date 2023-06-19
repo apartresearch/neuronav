@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use pyo3::prelude::*;
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, sync::Mutex};
 
 #[pyfunction]
 fn debug() {
@@ -91,22 +91,33 @@ impl PyNeuroscopePage {
 
 #[pyclass(name = "Neuronav")]
 pub struct PyNeuronav {
-    neuronav: Arc<Neuronav>,
+    neuronav: Arc<Mutex<Neuronav>>,
 }
 
 #[pymethods]
 impl PyNeuronav {
     #[staticmethod]
-    fn initialize(path: &str) -> PyResult<()> {
-        Neuronav::initialize(path)?;
-        Ok(())
+    fn initialize(path: &str) -> PyResult<Self> {
+        let neuronav = Arc::new(Mutex::new(Neuronav::initialize(path)?));
+        Ok(PyNeuronav { neuronav })
     }
 
     #[staticmethod]
     fn from_dir(path: &str) -> PyResult<Self> {
-        Ok(PyNeuronav {
-            neuronav: Arc::new(Neuronav::from_dir(path)?),
-        })
+        let neuronav = Arc::new(Mutex::new(Neuronav::from_dir(path)?));
+        Ok(PyNeuronav { neuronav })
+    }
+
+    fn create_model(&mut self, model: &str) -> PyResult<()> {
+        self.neuronav.blocking_lock().create_model(model)?;
+        Ok(())
+    }
+
+    fn add_existing_neuroscope_dir(&mut self, model: &str, path: &str) -> PyResult<()> {
+        self.neuronav
+            .blocking_lock()
+            .add_existing_neuroscope_dir(model, path)?;
+        Ok(())
     }
 
     fn start_server(&self) -> PyResult<()> {
